@@ -148,12 +148,12 @@ function arrayTranspose(data) {
 
 function adddatatosheet(data, descttt) {
   if (descttt == null) {
-    descttt = 'abc';
+    descttt = '';
   }  
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[1];
+  var sheet = ss.getSheets()[0];
   //sheet.clearContents();
-  sheet.appendRow([descttt,data]);
+  sheet.appendRow([data, descttt]);
 
   return 1; 
 }
