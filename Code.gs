@@ -6,7 +6,8 @@ function onOpen() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var menuEntries = [ {name: "Update TimeSheets", functionName: "freeagentEntryPoint"}];
   ss.addMenu("Veda", menuEntries);
-   
+  //clear the saved access_token when open document
+  UserProperties.deleteProperty(tokenPropertyName);   
 }
 
 
@@ -36,8 +37,6 @@ function freeagentEntryPoint(){
     var authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
     status = authInfo.getAuthorizationStatus();
     url = authInfo.getAuthorizationUrl();
-    //adddatatosheet(status);
-    //adddatatosheet(url);
     getData();
     //tabsData();
     //HTMLToOutput += uploadData();
@@ -78,6 +77,8 @@ function runSOQL(soql){
   var sheet = ss.getActiveSheet();  
   
    var defaultSheet = sheets[0];
+  
+  defaultSheet.clear({contentsOnly: true});
   
   // Push Veda Consulting into the contacts Array
   processContactArray.push(['Veda Consulting']);
@@ -130,16 +131,16 @@ function runSOQL(soql){
    // Browser.msgBox("Number of timeslips in page "+pageNo+" = "+timeslipsArray[v].length)
  
     totalArray = totalArray.concat(timeslipsArray[v]);
-
-  }  
+  }
+  adddatatosheet(totalArray.length + ' timeslips found');  
   Logger.log("total length" + totalArray.length)  ;
 
   for (c = 0; c < processContactArray.length; c++){
     
     var orgRows =[],
-      orgName;
+        orgName;
     
-    orgName = processContactArray[c];  
+    orgName = processContactArray[c];
     
     var rows = [],
         timeslip;  
@@ -152,6 +153,9 @@ function runSOQL(soql){
       var taskurl = timeslip.task;    
       var projecturl = timeslip.project;
       var contacturl;
+      
+      // change time format from decimal to HH:MM
+      var workHours = timeslip.hours/24;
       
       // If a new userurl found call the getUserDetails function    
       if(uniqueUserArray.indexOf(userurl) == -1){
@@ -210,22 +214,23 @@ function runSOQL(soql){
       }
         
       if(orgName == contactName){
-        orgRows.push([taskName, timeslip.dated_on, timeslip.hours, developerFirst, developerLast, contactName, projectName, timeslip.comment, isBillable, billingRate, billingPeriod, status]);
+        orgRows.push([taskName, timeslip.dated_on, workHours, developerFirst, developerLast, contactName, projectName, timeslip.comment, isBillable, billingRate, billingPeriod, status]);
       }
 
       // create a row for each timeslip
-      rows.push([taskName, timeslip.dated_on, timeslip.hours, developerFirst, developerLast, contactName, projectName, timeslip.comment, isBillable, billingRate, billingPeriod, status]);    
+      rows.push([taskName, timeslip.dated_on, workHours, developerFirst, developerLast, contactName, projectName, timeslip.comment, isBillable, billingRate, billingPeriod, status]);    
             
       
     }     
     // End of Loop to get all timeslip data and push data to rows
+    
     
     createFiles(orgName, rows, orgRows, titles);
    
   }
   // End of Loop - Process contacts
   
-  defaultSheet.clear({contentsOnly: true});
+//  defaultSheet.clear({contentsOnly: true});
  
  
   //titleRange = defaultSheet.getRange(1, 1, titles.length, 12);
@@ -252,6 +257,7 @@ function createFiles(orgName, rows, orgRows, titles){
      }
   }
   if (!getFolder) {
+    adddatatosheet('folder not found! creating one... ');
     var folder   = DriveApp.createFolder('Veda Timesheets');
     var folderId = folder.getId();
   }
@@ -269,6 +275,7 @@ function createFiles(orgName, rows, orgRows, titles){
   }
   
   if (!getFile) {
+    adddatatosheet('creating spreadsheet for ', orgName);
     var ssNew = SpreadsheetApp.create(orgName);
     var spreadFile = DriveApp.getFileById(ssNew.getId());
     DriveApp.getFolderById(folderId).addFile(spreadFile);    
@@ -307,11 +314,12 @@ function createFiles(orgName, rows, orgRows, titles){
   textFormat(sheet, titleRange);
   
   if(orgName == 'Veda Consulting'){
+    adddatatosheet('Updating ', 'Veda Spreadsheet');
     dataRange = sheet.getRange(2, 1, rows.length, 12);
     dataRange.setValues(rows);
     //styling the data
     dataRange.setVerticalAlignment("top");
-    // format hours into two decimal
+    // format hours into duration
     hoursRange = sheet.getRange(2, 3, rows.length, 1);
     twoDecimal(hoursRange);
     //apply colors to cells
@@ -319,14 +327,17 @@ function createFiles(orgName, rows, orgRows, titles){
     tabsData(defaultSheet, userHourSheet, taskHourSheet, clientHourSheet, colorme);
   }
   else{
+    adddatatosheet('Updating ', orgName);
     dataRange = sheet.getRange(2, 1, orgRows.length, 12);
     dataRange.setValues(orgRows);
     //styling the data
     dataRange.setVerticalAlignment("top");
-    // format hours into two decimal
+    // format hours into duration
     hoursRange = sheet.getRange(2, 3, rows.length, 1);
     twoDecimal(hoursRange);
     tabsData(defaultSheet, userHourSheet, taskHourSheet, clientHourSheet);
+    // send email
+    emailSpreadsheet(ssNew, orgName);
   }
   
 }
@@ -444,6 +455,7 @@ function tabsData(defaultSheet, userHourSheet, taskHourSheet, clientHourSheet, c
 
 function userHours(defaultSheet, userHourSheet, colorme) {
   
+  adddatatosheet('Updating User Tab ');
   // Get range to print week number 
   var getWeekRange = userHourSheet.getRange("A2:A"+numRow);
   
@@ -517,13 +529,15 @@ function userHours(defaultSheet, userHourSheet, colorme) {
     var range = userHourSheet.getRange(2, 4, rowRange, ColRange);
     colorize(range);
   }
-  // format hours into two decimal
+  // format hours into duration
   hoursRange = userHourSheet.getRange(2, 4, rowRange, ColRange+1);
   twoDecimal(hoursRange);  
 }
 
 
 function taskHours( taskHourSheet) {
+  
+  adddatatosheet('Updating Task Tab ');
   
   // Get range to print week number 
   var getWeekRange = taskHourSheet.getRange("A2:A"+numRow);
@@ -597,7 +611,7 @@ function taskHours( taskHourSheet) {
   var rowRange = weeknumbersArray.length;
   var ColRange = tasknamesArray.length;
   
-  // format hours into two decimal
+  // format hours into duration
   hoursRange = taskHourSheet.getRange(2, 4, rowRange, ColRange+1);
   twoDecimal(hoursRange);
 }
@@ -605,6 +619,7 @@ function taskHours( taskHourSheet) {
 
 function clientHours(clientHourSheet) {
   
+  adddatatosheet('Updating Client Tab ');
   // Get range to print week number 
   var getWeekRange = clientHourSheet.getRange("A2:A"+numRow);
   
@@ -672,7 +687,7 @@ function clientHours(clientHourSheet) {
   var rowRange = weeknumbersArray.length;
   var ColRange = clientnamesArray.length;
   
-  // format hours into two decimal
+  // format hours into duration
   hoursRange = clientHourSheet.getRange(2, 4, rowRange, ColRange+1);
   twoDecimal(hoursRange);
   
@@ -690,11 +705,46 @@ function emptyElement(element) {
 }
 
 
-// Make hours two decimal
+// Make hours into duration
 function twoDecimal(hoursRange){
-  hoursRange.setNumberFormat("0.00");
+  hoursRange.setNumberFormat("[h]:mm");
+//  hoursRange.setNumberFormat("0.00");
 }
 
+
+// Email spreadsheet
+function  emailSpreadsheet(ssNew, orgName) {  
+  
+  // get email address by orgName
+  var email = emailArray[orgName];
+  adddatatosheet('sending email to : ' + email);
+  
+  var date = Utilities.formatDate(new Date(), "GMT", "dd-MM-yyyy");
+  
+  // Subject of email message
+  var subject = "Veda Timesheet Reports : " + date;
+  
+   // email body
+  var body = "Timesheet for " + orgName;  
+  
+  // export as xlsx
+  var token = ScriptApp.getOAuthToken();
+  var id = ssNew.getId();  
+  var url = 'https://docs.google.com/feeds/';
+  var response = UrlFetchApp.fetch(url+'download/spreadsheets/Export?key='+id+'&exportFormat=xlsx',{
+      headers: {
+        'Authorization': 'Bearer ' +  token
+      } 
+     });
+  var blob = response.getBlob().setName(orgName + '.xlsx');
+  
+  
+  // If allowed to send emails, send the email with the Timesheet attachment
+  if (MailApp.getRemainingDailyQuota() > 0) {    
+    GmailApp.sendEmail(email, subject, body, {attachments:[blob]});    
+  }  
+  
+}
 
 function uploadData() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -733,10 +783,26 @@ function getAndStoreAccessToken(code){
   var response = UrlFetchApp.fetch(nextURL, getUrlFetchPOSTAuthOptions(payload)).getContentText();   
   var tokenResponse = JSON.parse(response);
 
+  //store the refresh_token for later retrieval
+  UserProperties.setProperty(refreshTokenPropertyName, tokenResponse.refresh_token);
   //freeagent requires you to call against the instance URL that is against the token (eg. https://dev.freeagent.com/)
   UserProperties.setProperty(baseURLPropertyName, tokenResponse.instance_url);
-  //store the token for later retrival
-  UserProperties.setProperty(tokenPropertyName, tokenResponse.access_token);
+}
+
+// get and store access_token using the refresh_token
+function refreshAccessToken(){
+  adddatatosheet('refreshing access_token');
+  var refresh_token = UserProperties.getProperty(refreshTokenPropertyName);
+  if(!refresh_token){
+    return
+  }
+  var tokenURL = TOKEN_URL;
+  var payload = 'grant_type=refresh_token&refresh_token='+refresh_token;
+  
+  var refresh = UrlFetchApp.fetch(tokenURL, getUrlFetchPOSTAuthOptions(payload)).getContentText();
+  var refreshResponse = JSON.parse(refresh);
+  UserProperties.setProperty(tokenPropertyName, refreshResponse.access_token);
+  return refreshResponse.access_token;
 }
 
 
@@ -778,9 +844,11 @@ function getUrlFetchPOSTOptions(payload){
 
 function isTokenValid() {
   var token = UserProperties.getProperty(tokenPropertyName);
-  //adddatatosheet(token, 'token');
   if(!token){ //if its empty or undefined
-    return false;
+    var token = refreshAccessToken(); // get token from refresh token
+    if(!token){ // if refresh token is not set return false
+       return false;
+    }
   }
   return true; //naive check
 }

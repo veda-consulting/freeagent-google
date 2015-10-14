@@ -7,13 +7,14 @@ var AUTHORIZE_URL = 'https://api.sandbox.freeagent.com/v2/approve_app';
 var TOKEN_URL = 'https://api.sandbox.freeagent.com/v2/token_endpoint'; 
 
 //PUT YOUR OWN SETTINGS HERE
-var CLIENT_ID = 'your_client_id';
-var CLIENT_SECRET='your_secret_key';
+var CLIENT_ID = 'LuiZTBSaJhAko6-yppszRA';
+var CLIENT_SECRET='Mf909bkvX27gywIE1IIvfQ';
 var REDIRECT_URL= ScriptApp.getService().getUrl();
 
 //this is the user propety where we'll store the token, make sure this is unique across all user properties across all scripts
-var tokenPropertyName = 'FREEAGENT_OAUTH_TOKEN5'; 
-var baseURLPropertyName = 'FREEAGENT_INSTANCE_URL5';
+var tokenPropertyName = 'FREEAGENT_OAUTH_TOKEN6'; 
+var baseURLPropertyName = 'FREEAGENT_INSTANCE_URL6';
+var refreshTokenPropertyName = 'FREEAGENT_REFRESH_TOKEN6';
 
 var apiurl = 'https://api.sandbox.freeagent.com/v2/';
 var perpage = 100;  // max 100
@@ -21,6 +22,13 @@ var days = 30;
 
 // Process specific contacts    
 var processContactArray = ['LLR', 'Cool Earth'];
+
+var emailArray = 
+    {
+      'Cool Earth' : "workatveda@gmail.com, mathavan@vedaconsulting.co.uk",
+      'LLR'        : "gopi@vedaconsulting.co.uk, kajan@vedaconsulting.co.uk"     
+    };
+  
 
 // Colorize ranges
 minRed = 0;
